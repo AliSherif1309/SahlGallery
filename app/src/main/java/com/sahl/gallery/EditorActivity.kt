@@ -1,8 +1,10 @@
 package com.sahl.gallery
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,15 +13,19 @@ import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PointF
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -27,18 +33,15 @@ import android.widget.Toast
 
 object PhotoEditorMath {
     fun buildColorMatrix(
-        brightness: Float, // -100..100
-        contrast: Float,   // 0.5..1.8 (1.0 neutral)
-        saturation: Float, // 0.0..2.0 (1.0 neutral)
-        warmth: Float      // -0.3..0.3 (0.0 neutral)
+        brightness: Float,
+        contrast: Float,
+        saturation: Float,
+        warmth: Float
     ): ColorMatrix {
         val cm = ColorMatrix()
-
-        // Saturation
         val sat = ColorMatrix().apply { setSaturation(saturation) }
         cm.postConcat(sat)
 
-        // Contrast + Brightness + Warmth
         val translate = (-0.5f * contrast + 0.5f) * 255f + brightness
         val rScale = contrast * (1f + warmth * 0.35f)
         val gScale = contrast
@@ -78,10 +81,166 @@ object PhotoEditorMath {
     }
 }
 
+enum class BrushMode { NONE, MOSAIC, PEN }
+
+data class EditorStroke(
+    val isMosaic: Boolean,
+    val color: Int,
+    val radiusNorm: Float,
+    val points: MutableList<PointF> = mutableListOf()
+)
+
+/**
+ * Interactive editor canvas supporting ColorMatrix preview,
+ * Mosaic/Blur privacy brush, and Pen markup strokes in normalized image coordinates.
+ */
+class EditorCanvasView(context: Context) : View(context) {
+    var bitmap: Bitmap? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var colorFilter: ColorMatrixColorFilter? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var brushMode: BrushMode = BrushMode.NONE
+    var penColor: Int = Color.parseColor("#E53935")
+    val strokes = mutableListOf<EditorStroke>()
+
+    private val imgRect = RectF()
+    private val bmpPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val penPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val mosaicPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private var activeStroke: EditorStroke? = null
+
+    fun undo(): Boolean {
+        if (strokes.isEmpty()) return false
+        strokes.removeAt(strokes.lastIndex)
+        invalidate()
+        return true
+    }
+
+    fun clearStrokes() {
+        strokes.clear()
+        invalidate()
+    }
+
+    private fun updateImgRect() {
+        val bmp = bitmap ?: return
+        val vw = width.toFloat()
+        val vh = height.toFloat()
+        if (vw <= 0f || vh <= 0f) return
+        val scale = minOf(vw / bmp.width, vh / bmp.height)
+        val dw = bmp.width * scale
+        val dh = bmp.height * scale
+        val dx = (vw - dw) / 2f
+        val dy = (vh - dh) / 2f
+        imgRect.set(dx, dy, dx + dw, dy + dh)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val bmp = bitmap ?: return
+        updateImgRect()
+        bmpPaint.colorFilter = colorFilter
+        canvas.drawBitmap(bmp, null, imgRect, bmpPaint)
+
+        for (s in strokes) {
+            if (s.isMosaic) {
+                drawMosaicPreview(canvas, bmp, s, imgRect)
+            } else {
+                drawPenStroke(canvas, s, imgRect)
+            }
+        }
+    }
+
+    private fun drawPenStroke(canvas: Canvas, s: EditorStroke, target: RectF) {
+        if (s.points.isEmpty()) return
+        penPaint.color = s.color
+        penPaint.strokeWidth = (s.radiusNorm * target.width()).coerceAtLeast(4f)
+        if (s.points.size == 1) {
+            val p = s.points[0]
+            canvas.drawPoint(target.left + p.x * target.width(), target.top + p.y * target.height(), penPaint)
+            return
+        }
+        val path = Path()
+        path.moveTo(target.left + s.points[0].x * target.width(), target.top + s.points[0].y * target.height())
+        for (i in 1 until s.points.size) {
+            val p = s.points[i]
+            path.lineTo(target.left + p.x * target.width(), target.top + p.y * target.height())
+        }
+        canvas.drawPath(path, penPaint)
+    }
+
+    private fun drawMosaicPreview(canvas: Canvas, bmp: Bitmap, s: EditorStroke, target: RectF) {
+        val radiusPx = (s.radiusNorm * target.width()).coerceAtLeast(10f)
+        val block = (radiusPx * 0.45f).coerceAtLeast(8f)
+        for (p in s.points) {
+            val cx = target.left + p.x * target.width()
+            val cy = target.top + p.y * target.height()
+            val bx = (p.x * (bmp.width - 1)).toInt().coerceIn(0, bmp.width - 1)
+            val by = (p.y * (bmp.height - 1)).toInt().coerceIn(0, bmp.height - 1)
+            mosaicPaint.color = bmp.getPixel(bx, by)
+            val snapX = ((cx / block).toInt()) * block
+            val snapY = ((cy / block).toInt()) * block
+            canvas.drawRect(snapX - block, snapY - block, snapX + block, snapY + block, mosaicPaint)
+        }
+    }
+
+    fun renderStrokesToBitmap(outBmp: Bitmap) {
+        val canvas = Canvas(outBmp)
+        val target = RectF(0f, 0f, outBmp.width.toFloat(), outBmp.height.toFloat())
+        for (s in strokes) {
+            if (s.isMosaic) {
+                drawMosaicPreview(canvas, outBmp, s, target)
+            } else {
+                drawPenStroke(canvas, s, target)
+            }
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (brushMode == BrushMode.NONE || bitmap == null || imgRect.width() <= 0f) return false
+        val nx = ((event.x - imgRect.left) / imgRect.width()).coerceIn(0f, 1f)
+        val ny = ((event.y - imgRect.top) / imgRect.height()).coerceIn(0f, 1f)
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                val stroke = EditorStroke(
+                    isMosaic = brushMode == BrushMode.MOSAIC,
+                    color = penColor,
+                    radiusNorm = if (brushMode == BrushMode.MOSAIC) 0.045f else 0.012f
+                )
+                stroke.points.add(PointF(nx, ny))
+                strokes.add(stroke)
+                activeStroke = stroke
+                invalidate()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                activeStroke?.points?.add(PointF(nx, ny))
+                invalidate()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                activeStroke = null
+            }
+        }
+        return true
+    }
+}
+
 class EditorActivity : Activity() {
     private var sourceUri: Uri? = null
     private var workingBitmap: Bitmap? = null
-    private lateinit var previewImg: ImageView
+    private lateinit var canvasView: EditorCanvasView
 
     private var brightness = 0f
     private var contrast = 1f
@@ -89,10 +248,20 @@ class EditorActivity : Activity() {
     private var warmth = 0f
     private var cropRatio: Float? = null
 
+    private lateinit var btnBlur: TextView
+    private lateinit var btnDraw: TextView
     private lateinit var seekBright: SeekBar
     private lateinit var seekContrast: SeekBar
     private lateinit var seekSat: SeekBar
     private lateinit var seekWarmth: SeekBar
+
+    private val penColors = listOf(
+        Color.parseColor("#E53935"),
+        Color.parseColor("#0E6B4E"),
+        Color.parseColor("#FDD835"),
+        Color.WHITE
+    )
+    private var penColorIdx = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -140,30 +309,50 @@ class EditorActivity : Activity() {
         })
         root.addView(topBar)
 
-        // Preview
-        previewImg = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        root.addView(previewImg, LinearLayout.LayoutParams(-1, 0, 1f))
+        // Interactive Canvas
+        canvasView = EditorCanvasView(this)
+        root.addView(canvasView, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        // Quick Transform Row: Auto | Rotate | Flip | Crop
+        // Quick Tools Row: Auto | Rotate | Flip | Crop | Blur | Draw | Undo
         val toolsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding((8 * dp).toInt(), (8 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+            setPadding((4 * dp).toInt(), (6 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt())
         }
         fun toolBtn(label: String, onClick: () -> Unit): TextView = TextView(this).apply {
             text = label
-            textSize = 13f
+            textSize = 12f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            setPadding((12 * dp).toInt(), (8 * dp).toInt(), (12 * dp).toInt(), (8 * dp).toInt())
+            setPadding((8 * dp).toInt(), (8 * dp).toInt(), (8 * dp).toInt(), (8 * dp).toInt())
             setOnClickListener { onClick() }
         }
         toolsRow.addView(toolBtn("✨ ${getString(R.string.editor_auto)}") { applyAutoEnhance() })
-        toolsRow.addView(toolBtn("↻ ${getString(R.string.editor_rotate)}") { transformBitmap(90f, false) })
-        toolsRow.addView(toolBtn("⇄ ${getString(R.string.editor_flip)}") { transformBitmap(0f, true) })
-        toolsRow.addView(toolBtn("✂ ${getString(R.string.editor_crop)}") { pickCropRatio() })
+        toolsRow.addView(toolBtn("↻") { transformBitmap(90f, false) })
+        toolsRow.addView(toolBtn("⇄") { transformBitmap(0f, true) })
+        toolsRow.addView(toolBtn("✂") { pickCropRatio() })
+        btnBlur = toolBtn("▦ ${getString(R.string.editor_blur)}") {
+            canvasView.brushMode = if (canvasView.brushMode == BrushMode.MOSAIC) BrushMode.NONE else BrushMode.MOSAIC
+            refreshBrushButtons()
+        }
+        btnDraw = toolBtn("✎ ${getString(R.string.editor_draw)}") {
+            if (canvasView.brushMode == BrushMode.PEN) {
+                penColorIdx = (penColorIdx + 1) % penColors.size
+                if (penColorIdx == 0) {
+                    canvasView.brushMode = BrushMode.NONE
+                } else {
+                    canvasView.penColor = penColors[penColorIdx]
+                }
+            } else {
+                penColorIdx = 0
+                canvasView.penColor = penColors[0]
+                canvasView.brushMode = BrushMode.PEN
+            }
+            refreshBrushButtons()
+        }
+        toolsRow.addView(btnBlur)
+        toolsRow.addView(btnDraw)
+        toolsRow.addView(toolBtn("↶") { canvasView.undo() })
         root.addView(toolsRow)
 
         // Sliders
@@ -177,13 +366,13 @@ class EditorActivity : Activity() {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, (4 * dp).toInt(), 0, (4 * dp).toInt())
+                setPadding(0, (3 * dp).toInt(), 0, (3 * dp).toInt())
             }
             row.addView(TextView(this).apply {
                 text = label
-                textSize = 12.5f
+                textSize = 12f
                 setTextColor(Color.LTGRAY)
-                layoutParams = LinearLayout.LayoutParams((86 * dp).toInt(), -2)
+                layoutParams = LinearLayout.LayoutParams((82 * dp).toInt(), -2)
             })
             val sb = SeekBar(this).apply {
                 this.max = max
@@ -213,6 +402,12 @@ class EditorActivity : Activity() {
         loadBitmap()
     }
 
+    private fun refreshBrushButtons() {
+        val accent = Color.parseColor("#0E6B4E")
+        btnBlur.setTextColor(if (canvasView.brushMode == BrushMode.MOSAIC) accent else Color.WHITE)
+        btnDraw.setTextColor(if (canvasView.brushMode == BrushMode.PEN) canvasView.penColor else Color.WHITE)
+    }
+
     private fun loadBitmap() {
         val uri = sourceUri ?: return
         Thread {
@@ -222,7 +417,7 @@ class EditorActivity : Activity() {
                     finish()
                 } else {
                     workingBitmap = bmp
-                    previewImg.setImageBitmap(bmp)
+                    canvasView.bitmap = bmp
                 }
             }
         }.start()
@@ -248,7 +443,8 @@ class EditorActivity : Activity() {
         val next = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
         if (next !== bmp) bmp.recycle()
         workingBitmap = next
-        previewImg.setImageBitmap(next)
+        canvasView.clearStrokes()
+        canvasView.bitmap = next
     }
 
     private fun pickCropRatio() {
@@ -264,14 +460,15 @@ class EditorActivity : Activity() {
                     val cropped = Bitmap.createBitmap(bmp, r.left, r.top, r.width, r.height)
                     if (cropped !== bmp) bmp.recycle()
                     workingBitmap = cropped
-                    previewImg.setImageBitmap(cropped)
+                    canvasView.clearStrokes()
+                    canvasView.bitmap = cropped
                 }
             }.show()
     }
 
     private fun updateFilterPreview() {
         val cm = PhotoEditorMath.buildColorMatrix(brightness, contrast, saturation, warmth)
-        previewImg.colorFilter = ColorMatrixColorFilter(cm)
+        canvasView.colorFilter = ColorMatrixColorFilter(cm)
     }
 
     private fun saveEditedCopy() {
@@ -282,6 +479,7 @@ class EditorActivity : Activity() {
             val canvas = Canvas(out)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { colorFilter = ColorMatrixColorFilter(cm) }
             canvas.drawBitmap(src, 0f, 0f, paint)
+            canvasView.renderStrokesToBitmap(out)
 
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG_${System.currentTimeMillis()}_edited")
