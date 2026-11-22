@@ -74,4 +74,28 @@ class GalleryLogicTest {
         assertEquals(500, rect.left)
         assertEquals("1:05", MediaRepo.formatDuration(65_000L))
     }
+
+    @Test
+    fun duplicateHashDetectsIdenticalAndDifferentImages() {
+        val gradientA = IntArray(72) { idx ->
+            val x = idx % 9
+            val v = x * 25
+            (0xFF shl 24) or (v shl 16) or (v shl 8) or v
+        }
+        val gradientB = IntArray(72) { idx ->
+            val x = idx % 9
+            val v = x * 24 + 5
+            (0xFF shl 24) or (v shl 16) or (v shl 8) or v
+        }
+        val reverse = IntArray(72) { idx ->
+            val x = 8 - (idx % 9)
+            val v = x * 25
+            (0xFF shl 24) or (v shl 16) or (v shl 8) or v
+        }
+        val hA = DuplicateFinder.computeDHash(gradientA)
+        val hB = DuplicateFinder.computeDHash(gradientB)
+        val hRev = DuplicateFinder.computeDHash(reverse)
+        assertEquals(0, DuplicateFinder.hammingDistance(hA, hB))
+        assertTrue(DuplicateFinder.hammingDistance(hA, hRev) > 20)
+    }
 }

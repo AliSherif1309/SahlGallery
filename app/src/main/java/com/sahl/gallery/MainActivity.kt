@@ -176,6 +176,26 @@ class MainActivity : ComponentActivity() {
             setTextColor(textPrimary)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
+        val btnCleanup = TextView(this).apply {
+            text = "🧹"
+            textSize = 19f
+            setTextColor(textPrimary)
+            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+            setOnClickListener {
+                viewerLauncher.launch(Intent(this@MainActivity, CleanupActivity::class.java))
+            }
+        }
+        val btnCamera = TextView(this).apply {
+            text = "📷"
+            textSize = 19f
+            setTextColor(textPrimary)
+            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+            setOnClickListener {
+                val launch = packageManager.getLaunchIntentForPackage("com.sahl.camera")
+                    ?: Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
+                try { startActivity(launch) } catch (_: Exception) { }
+            }
+        }
         val btnSettings = TextView(this).apply {
             text = "⚙"
             textSize = 20f
@@ -185,6 +205,8 @@ class MainActivity : ComponentActivity() {
         }
         topBar.addView(btnBackAlbum)
         topBar.addView(topTitle)
+        topBar.addView(btnCleanup)
+        topBar.addView(btnCamera)
         topBar.addView(btnSettings)
         col.addView(topBar)
 

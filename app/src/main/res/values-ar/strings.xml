@@ -47,4 +47,15 @@
     <string name="setting_show_hidden">إظهار المجلدات المخفية</string>
     <string name="version_label">الإصدار %1$s</string>
     <string name="selected_count">تم تحديد %1$d</string>
+    <string name="editor_blur">تمويه</string>
+    <string name="editor_draw">رسم</string>
+    <string name="editor_undo">تراجع</string>
+    <string name="cleanup_title">مساعد التنظيف</string>
+    <string name="cleanup_scanning">جارٍ البحث عن الصور المكررة والملفات الكبيرة…</string>
+    <string name="cleanup_duplicates">صور مكررة أو متشابهة</string>
+    <string name="cleanup_large">ملفات كبيرة (+20 ميجا)</string>
+    <string name="cleanup_screenshots">لقطات الشاشة</string>
+    <string name="cleanup_ready">اختر العناصر لنقلها إلى السلة</string>
+    <string name="cleanup_reclaimable">يمكن توفير %1$s</string>
+    <string name="cleanup_clean">المساحة نظيفة!</string>
 </resources>
