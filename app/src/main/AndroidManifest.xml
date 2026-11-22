@@ -87,5 +87,11 @@
         <receiver
             android:name=".UpdateCheckReceiver"
             android:exported="false" />
+
+        <provider
+            android:name=".UnionProvider"
+            android:authorities="com.sahl.gallery.union"
+            android:exported="true"
+            android:readPermission="com.sahl.permission.UNION" />
     </application>
 </manifest>
