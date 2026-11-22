@@ -176,20 +176,24 @@ class MainActivity : ComponentActivity() {
             setTextColor(textPrimary)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        val btnCleanup = TextView(this).apply {
-            text = "🧹"
-            textSize = 19f
-            setTextColor(textPrimary)
-            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+        val iconSz = (36 * dp).toInt()
+        val iconPad = (7 * dp).toInt()
+        val btnCleanup = ImageView(this).apply {
+            setImageResource(R.drawable.ic_sahl_cleaner)
+            setColorFilter(textPrimary)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = LinearLayout.LayoutParams(iconSz, iconSz)
             setOnClickListener {
                 viewerLauncher.launch(Intent(this@MainActivity, CleanupActivity::class.java))
             }
         }
-        val btnCamera = TextView(this).apply {
-            text = "📷"
-            textSize = 19f
-            setTextColor(textPrimary)
-            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+        val btnCamera = ImageView(this).apply {
+            setImageResource(R.drawable.ic_sahl_camera)
+            setColorFilter(textPrimary)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = LinearLayout.LayoutParams(iconSz, iconSz)
             setOnClickListener {
                 val launch = packageManager.getLaunchIntentForPackage("com.sahl.camera")
                     ?: Intent(MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA)
@@ -360,9 +364,9 @@ class MainActivity : ComponentActivity() {
                 refreshDisplay()
             }
         }
-        tabPhotos = navTab("🖼 ${getString(R.string.tab_photos)}", 0)
-        tabAlbums = navTab("📁 ${getString(R.string.tab_albums)}", 1)
-        tabSearch = navTab("🔍 ${getString(R.string.tab_search)}", 2)
+        tabPhotos = navTab(getString(R.string.tab_photos), 0)
+        tabAlbums = navTab(getString(R.string.tab_albums), 1)
+        tabSearch = navTab(getString(R.string.tab_search), 2)
         bottomBar.addView(tabPhotos)
         bottomBar.addView(tabAlbums)
         bottomBar.addView(tabSearch)
