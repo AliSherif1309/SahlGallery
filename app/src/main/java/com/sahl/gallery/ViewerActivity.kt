@@ -80,7 +80,7 @@ class ViewerActivity : ComponentActivity() {
             mutableListOf(
                 MediaItem(
                     id = System.currentTimeMillis(),
-                    uri = externalUri,
+                    uriString = externalUri.toString(),
                     name = externalUri.lastPathSegment ?: "media",
                     bucket = "",
                     dateAddedSec = System.currentTimeMillis() / 1000L,

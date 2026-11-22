@@ -15,7 +15,7 @@ class GalleryLogicTest {
         isVideo: Boolean = false
     ) = MediaItem(
         id = id,
-        uri = Uri.parse("content://media/external/images/media/$id"),
+        uriString = "content://media/external/images/media/$id",
         name = name,
         bucket = bucket,
         dateAddedSec = dateSec,
@@ -69,8 +69,8 @@ class GalleryLogicTest {
     @Test
     fun cropAndDurationFormattingWork() {
         val rect = PhotoEditorMath.computeCenteredCropRect(4000, 3000, 1f)
-        assertEquals(3000, rect.width())
-        assertEquals(3000, rect.height())
+        assertEquals(3000, rect.width)
+        assertEquals(3000, rect.height)
         assertEquals(500, rect.left)
         assertEquals("1:05", MediaRepo.formatDuration(65_000L))
     }

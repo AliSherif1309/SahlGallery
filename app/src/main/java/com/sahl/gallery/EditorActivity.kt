@@ -56,19 +56,24 @@ object PhotoEditorMath {
         return cm
     }
 
-    fun computeCenteredCropRect(width: Int, height: Int, targetRatio: Float?): Rect {
+    data class CropRect(val left: Int, val top: Int, val right: Int, val bottom: Int) {
+        val width: Int get() = right - left
+        val height: Int get() = bottom - top
+    }
+
+    fun computeCenteredCropRect(width: Int, height: Int, targetRatio: Float?): CropRect {
         if (targetRatio == null || targetRatio <= 0f || width <= 0 || height <= 0) {
-            return Rect(0, 0, width, height)
+            return CropRect(0, 0, width, height)
         }
         val currentRatio = width.toFloat() / height.toFloat()
         return if (currentRatio > targetRatio) {
             val newW = (height * targetRatio).toInt().coerceIn(1, width)
             val left = (width - newW) / 2
-            Rect(left, 0, left + newW, height)
+            CropRect(left, 0, left + newW, height)
         } else {
             val newH = (width / targetRatio).toInt().coerceIn(1, height)
             val top = (height - newH) / 2
-            Rect(0, top, width, top + newH)
+            CropRect(0, top, width, top + newH)
         }
     }
 }
@@ -256,7 +261,7 @@ class EditorActivity : Activity() {
                 val bmp = workingBitmap ?: return@setItems
                 if (cropRatio != null) {
                     val r = PhotoEditorMath.computeCenteredCropRect(bmp.width, bmp.height, cropRatio)
-                    val cropped = Bitmap.createBitmap(bmp, r.left, r.top, r.width(), r.height())
+                    val cropped = Bitmap.createBitmap(bmp, r.left, r.top, r.width, r.height)
                     if (cropped !== bmp) bmp.recycle()
                     workingBitmap = cropped
                     previewImg.setImageBitmap(cropped)

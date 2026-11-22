@@ -22,7 +22,7 @@ import java.util.concurrent.Executors
 
 data class MediaItem(
     val id: Long,
-    val uri: Uri,
+    val uriString: String,
     val name: String,
     val bucket: String,
     val dateAddedSec: Long,
@@ -30,7 +30,9 @@ data class MediaItem(
     val durationMs: Long,
     val isVideo: Boolean,
     val mimeType: String
-)
+) {
+    val uri: Uri get() = Uri.parse(uriString)
+}
 
 data class Album(
     val name: String,
@@ -106,7 +108,7 @@ object MediaRepo {
                     list.add(
                         MediaItem(
                             id = id,
-                            uri = uri,
+                            uriString = uri.toString(),
                             name = c.getString(iName) ?: "media",
                             bucket = c.getString(iBucket) ?: "Other",
                             dateAddedSec = c.getLong(iDate),
