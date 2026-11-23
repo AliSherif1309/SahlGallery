@@ -200,11 +200,12 @@ class MainActivity : ComponentActivity() {
                 try { startActivity(launch) } catch (_: Exception) { }
             }
         }
-        val btnSettings = TextView(this).apply {
-            text = "⚙"
-            textSize = 20f
-            setTextColor(textPrimary)
-            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+        val btnSettings = ImageView(this).apply {
+            setImageResource(R.drawable.ic_sahl_settings)
+            setColorFilter(textPrimary)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = LinearLayout.LayoutParams(iconSz, iconSz)
             setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         }
         topBar.addView(btnBackAlbum)
@@ -229,7 +230,7 @@ class MainActivity : ComponentActivity() {
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         val btnSelDelete = TextView(this).apply {
-            text = "🗑 ${getString(R.string.action_delete)}"
+            text = "${getString(R.string.action_delete)}"
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
@@ -673,7 +674,7 @@ class MainActivity : ComponentActivity() {
             }
             if (position == 1) {
                 holder.img.setImageBitmap(null)
-                holder.title.text = "🔒 ${getString(R.string.vault_album)}"
+                holder.title.text = "${getString(R.string.vault_album)}"
                 holder.count.text = MediaRepo.listVaultFiles(this@MainActivity).size.toString()
                 holder.card.setOnClickListener {
                     startActivity(Intent(this@MainActivity, VaultActivity::class.java))

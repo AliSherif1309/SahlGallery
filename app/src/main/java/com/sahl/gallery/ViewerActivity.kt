@@ -158,12 +158,12 @@ class ViewerActivity : ComponentActivity() {
             setOnClickListener { onClick() }
         }
         btnFav = actionBtn("♡ ${getString(R.string.action_favorite)}") { toggleFav() }
-        btnEdit = actionBtn("✎ ${getString(R.string.action_edit)}") { openEditor() }
+        btnEdit = actionBtn("${getString(R.string.action_edit)}") { openEditor() }
         val btnShare = actionBtn("↗ ${getString(R.string.action_share)}") {
             currentItem()?.let { MediaRepo.shareUri(this, it.uri, it.mimeType) }
         }
         val btnInfo = actionBtn("ⓘ ${getString(R.string.action_info)}") { showInfo() }
-        val btnDelete = actionBtn("🗑 ${getString(R.string.action_delete)}") { trashCurrent() }
+        val btnDelete = actionBtn("${getString(R.string.action_delete)}") { trashCurrent() }
 
         bottomBar.addView(btnFav)
         bottomBar.addView(btnEdit)
