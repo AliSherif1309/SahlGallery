@@ -391,4 +391,27 @@ object MediaRepo {
         }
         context.startActivity(Intent.createChooser(i, null))
     }
+
+    fun shareMultiple(context: Context, items: List<MediaItem>) {
+        if (items.isEmpty()) return
+        if (items.size == 1) {
+            shareUri(context, items[0].uri, items[0].mimeType)
+            return
+        }
+        val allImages = items.all { !it.isVideo }
+        val allVideos = items.all { it.isVideo }
+        val mime = when {
+            allImages -> "image/*"
+            allVideos -> "video/*"
+            else -> "*/*"
+        }
+        val uris = ArrayList<Uri>(items.size)
+        items.forEach { uris.add(it.uri) }
+        val i = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = mime
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(i, null))
+    }
 }
