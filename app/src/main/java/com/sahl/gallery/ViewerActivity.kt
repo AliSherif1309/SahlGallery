@@ -100,6 +100,7 @@ class ViewerActivity : ComponentActivity() {
 
         pager = ViewPager2(this).apply {
             adapter = ViewerAdapter()
+            offscreenPageLimit = 1
             setCurrentItem(startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)), false)
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {

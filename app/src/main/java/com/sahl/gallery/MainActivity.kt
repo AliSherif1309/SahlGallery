@@ -347,6 +347,8 @@ class MainActivity : ComponentActivity() {
         })
 
         recycler = RecyclerView(this).apply {
+            setHasFixedSize(true)
+            setItemViewCacheSize(24)
             setOnTouchListener { _, event ->
                 scaleDetector.onTouchEvent(event)
                 false
@@ -513,6 +515,15 @@ class MainActivity : ComponentActivity() {
         private val TYPE_HEADER = 0
         private val TYPE_ITEM = 1
 
+        init {
+            setHasStableIds(true)
+        }
+
+        override fun getItemId(position: Int): Long = when (val e = timelineEntries[position]) {
+            is TimelineEntry.Header -> -e.title.hashCode().toLong() - 1L
+            is TimelineEntry.Item -> e.media.id
+        }
+
         inner class HeaderVH(val tv: TextView) : RecyclerView.ViewHolder(tv)
         inner class ItemVH(val box: FrameLayout, val img: ImageView, val badge: TextView, val check: TextView) : RecyclerView.ViewHolder(box)
 
@@ -580,11 +591,16 @@ class MainActivity : ComponentActivity() {
             if (holder is ItemVH && entry is TimelineEntry.Item) {
                 val item = entry.media
                 holder.img.tag = item.id
-                holder.img.setImageBitmap(null)
-                MediaRepo.loadThumbnailAsync(this@MainActivity, item) { id, bmp ->
-                    if (holder.img.tag == id && bmp != null) {
-                        holder.img.post {
-                            if (holder.img.tag == id) holder.img.setImageBitmap(bmp)
+                val cached = MediaRepo.getCachedThumbnail(item.id)
+                if (cached != null) {
+                    holder.img.setImageBitmap(cached)
+                } else {
+                    holder.img.setImageBitmap(null)
+                    MediaRepo.loadThumbnailAsync(this@MainActivity, item) { id, bmp ->
+                        if (holder.img.tag == id && bmp != null) {
+                            holder.img.post {
+                                if (holder.img.tag == id) holder.img.setImageBitmap(bmp)
+                            }
                         }
                     }
                 }
