@@ -124,9 +124,14 @@ object MediaRepo {
         return list
     }
 
+    fun getCachedThumbnail(id: Long): Bitmap? {
+        val cached = thumbCache.get(id)
+        return if (cached != null && !cached.isRecycled) cached else null
+    }
+
     fun loadThumbnailAsync(context: Context, item: MediaItem, onLoaded: (Long, Bitmap?) -> Unit) {
-        val cached = thumbCache.get(item.id)
-        if (cached != null && !cached.isRecycled) {
+        val cached = getCachedThumbnail(item.id)
+        if (cached != null) {
             onLoaded(item.id, cached)
             return
         }
