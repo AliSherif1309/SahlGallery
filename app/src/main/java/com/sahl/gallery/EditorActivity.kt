@@ -335,7 +335,7 @@ class EditorActivity : Activity() {
             canvasView.brushMode = if (canvasView.brushMode == BrushMode.MOSAIC) BrushMode.NONE else BrushMode.MOSAIC
             refreshBrushButtons()
         }
-        btnDraw = toolBtn("✎ ${getString(R.string.editor_draw)}") {
+        btnDraw = toolBtn("${getString(R.string.editor_draw)}") {
             if (canvasView.brushMode == BrushMode.PEN) {
                 penColorIdx = (penColorIdx + 1) % penColors.size
                 if (penColorIdx == 0) {
