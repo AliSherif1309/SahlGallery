@@ -229,19 +229,27 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
+        val btnSelShare = TextView(this).apply {
+            text = "↗ ${getString(R.string.action_share)}"
+            textSize = 14f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE)
+            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (10 * dp).toInt(), (4 * dp).toInt())
+            setOnClickListener { shareSelected() }
+        }
         val btnSelDelete = TextView(this).apply {
             text = "${getString(R.string.action_delete)}"
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            setPadding((12 * dp).toInt(), (4 * dp).toInt(), (12 * dp).toInt(), (4 * dp).toInt())
+            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (10 * dp).toInt(), (4 * dp).toInt())
             setOnClickListener { trashSelected() }
         }
         val btnSelClear = TextView(this).apply {
             text = "✕"
             textSize = 18f
             setTextColor(Color.WHITE)
-            setPadding((12 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt())
+            setPadding((10 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt(), (4 * dp).toInt())
             setOnClickListener {
                 selectedIds.clear()
                 updateSelectionBar()
@@ -249,6 +257,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         selectionBar.addView(selectionCountText)
+        selectionBar.addView(btnSelShare)
         selectionBar.addView(btnSelDelete)
         selectionBar.addView(btnSelClear)
         col.addView(selectionBar)
@@ -484,6 +493,11 @@ class MainActivity : ComponentActivity() {
             selectionBar.visibility = View.VISIBLE
             selectionCountText.text = getString(R.string.selected_count, selectedIds.size)
         }
+    }
+
+    private fun shareSelected() {
+        val items = visibleMedia.filter { selectedIds.contains(it.id) }
+        MediaRepo.shareMultiple(this, items)
     }
 
     private fun trashSelected() {
