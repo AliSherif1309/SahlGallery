@@ -476,6 +476,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val source = when {
+            activeAlbum == getString(R.string.all_images_album) -> allItems.filter { !it.isVideo }
             activeAlbum == getString(R.string.favorites_album) -> allItems.filter { favorites.contains(it.id) }
             activeAlbum != null -> allItems.filter { it.bucket == activeAlbum }
             activeTab == 2 -> MediaRepo.filterItems(allItems, activeFilter, searchQuery, favorites)
@@ -689,10 +690,37 @@ class MainActivity : ComponentActivity() {
             return VH(card, img, title, count)
         }
 
-        override fun getItemCount(): Int = albums.size + 2
+        override fun getItemCount(): Int = albums.size + 3
 
         override fun onBindViewHolder(holder: VH, position: Int) {
             if (position == 0) {
+                val images = allItems.filter { !it.isVideo }
+                holder.title.text = "🖼 ${getString(R.string.all_images_album)}"
+                holder.count.text = images.size.toString()
+                val cover = images.firstOrNull()
+                if (cover != null) {
+                    holder.img.tag = cover.id
+                    val cached = MediaRepo.getCachedThumbnail(cover.id)
+                    if (cached != null) {
+                        holder.img.setImageBitmap(cached)
+                    } else {
+                        holder.img.setImageBitmap(null)
+                        MediaRepo.loadThumbnailAsync(this@MainActivity, cover) { id, bmp ->
+                            if (holder.img.tag == id && bmp != null) {
+                                holder.img.post { if (holder.img.tag == id) holder.img.setImageBitmap(bmp) }
+                            }
+                        }
+                    }
+                } else {
+                    holder.img.setImageBitmap(null)
+                }
+                holder.card.setOnClickListener {
+                    activeAlbum = getString(R.string.all_images_album)
+                    refreshDisplay()
+                }
+                return
+            }
+            if (position == 1) {
                 holder.img.setImageBitmap(null)
                 holder.title.text = "♥ ${getString(R.string.favorites_album)}"
                 holder.count.text = favorites.size.toString()
@@ -702,7 +730,7 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            if (position == 1) {
+            if (position == 2) {
                 holder.img.setImageBitmap(null)
                 holder.title.text = "${getString(R.string.vault_album)}"
                 holder.count.text = MediaRepo.listVaultFiles(this@MainActivity).size.toString()
@@ -711,15 +739,20 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            val album = albums[position - 2]
+            val album = albums[position - 3]
             holder.title.text = album.name
             holder.count.text = album.count.toString()
             holder.img.tag = album.coverItem.id
-            holder.img.setImageBitmap(null)
-            MediaRepo.loadThumbnailAsync(this@MainActivity, album.coverItem) { id, bmp ->
-                if (holder.img.tag == id && bmp != null) {
-                    holder.img.post {
-                        if (holder.img.tag == id) holder.img.setImageBitmap(bmp)
+            val cached = MediaRepo.getCachedThumbnail(album.coverItem.id)
+            if (cached != null) {
+                holder.img.setImageBitmap(cached)
+            } else {
+                holder.img.setImageBitmap(null)
+                MediaRepo.loadThumbnailAsync(this@MainActivity, album.coverItem) { id, bmp ->
+                    if (holder.img.tag == id && bmp != null) {
+                        holder.img.post {
+                            if (holder.img.tag == id) holder.img.setImageBitmap(bmp)
+                        }
                     }
                 }
             }

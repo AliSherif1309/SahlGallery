@@ -15,6 +15,7 @@
     <string name="today">اليوم</string>
     <string name="yesterday">أمس</string>
     <string name="favorites_album">المفضلة</string>
+    <string name="all_images_album">كل الصور</string>
     <string name="vault_album">الخزنة الخاصة</string>
     <string name="vault_title">الخزنة الخاصة</string>
     <string name="vault_unlock">فتح الخزنة الخاصة</string>
