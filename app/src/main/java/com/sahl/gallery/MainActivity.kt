@@ -455,7 +455,14 @@ class MainActivity : ComponentActivity() {
         tabPhotos.setTextColor(if (activeTab == 0) accent else idle)
         tabAlbums.setTextColor(if (activeTab == 1) accent else idle)
         tabSearch.setTextColor(if (activeTab == 2) accent else idle)
-        searchBarContainer.visibility = if (activeTab == 2) View.VISIBLE else View.GONE
+        updateSearchBarVisibility()
+    }
+
+    private fun updateSearchBarVisibility() {
+        val inAlbumsList = activeTab == 1 && activeAlbum == null
+        val inSearchTab = activeTab == 2
+        searchBarContainer.visibility = if (inAlbumsList || inSearchTab) View.VISIBLE else View.GONE
+        filterRow.visibility = if (inSearchTab) View.VISIBLE else View.GONE
     }
 
     private fun updateFilterChips() {
@@ -554,6 +561,7 @@ class MainActivity : ComponentActivity() {
     private fun refreshDisplay() {
         btnBackAlbum.visibility = if (activeAlbum != null) View.VISIBLE else View.GONE
         btnSort.visibility = if (activeTab == 0 || activeTab == 1) View.VISIBLE else View.GONE
+        updateSearchBarVisibility()
         topTitle.text = activeAlbum ?: getString(R.string.app_name)
         applyLayoutManager()
 
@@ -784,10 +792,19 @@ class MainActivity : ComponentActivity() {
             return VH(card, img, title, count)
         }
 
-        override fun getItemCount(): Int = albums.size + 3
+        private fun displayedAlbums(): List<Album> {
+            val q = searchQuery.trim()
+            return if (q.isEmpty()) albums else albums.filter { it.name.contains(q, ignoreCase = true) }
+        }
+
+        override fun getItemCount(): Int {
+            val list = displayedAlbums()
+            return if (searchQuery.trim().isEmpty()) list.size + 3 else list.size
+        }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            if (position == 0) {
+            val qEmpty = searchQuery.trim().isEmpty()
+            if (qEmpty && position == 0) {
                 val images = allItems.filter { !it.isVideo }
                 holder.title.text = "🖼 ${getString(R.string.all_images_album)}"
                 holder.count.text = images.size.toString()
@@ -813,7 +830,7 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            if (position == 1) {
+            if (qEmpty && position == 1) {
                 holder.img.setImageBitmap(null)
                 holder.title.text = "♥ ${getString(R.string.favorites_album)}"
                 holder.count.text = favorites.size.toString()
@@ -822,7 +839,7 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            if (position == 2) {
+            if (qEmpty && position == 2) {
                 holder.img.setImageBitmap(null)
                 holder.title.text = "${getString(R.string.vault_album)}"
                 holder.count.text = MediaRepo.listVaultFiles(this@MainActivity).size.toString()
@@ -831,7 +848,8 @@ class MainActivity : ComponentActivity() {
                 }
                 return
             }
-            val album = albums[position - 3]
+            val list = displayedAlbums()
+            val album = list[if (qEmpty) position - 3 else position]
             val isPinned = pinnedAlbums.contains(album.name)
             holder.title.text = if (isPinned) "📌 ${album.name}" else album.name
             holder.count.text = album.count.toString()
