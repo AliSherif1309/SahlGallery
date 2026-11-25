@@ -101,6 +101,13 @@ class ViewerActivity : ComponentActivity() {
         pager = ViewPager2(this).apply {
             adapter = ViewerAdapter()
             offscreenPageLimit = 1
+            setPageTransformer { page, position ->
+                val absPos = kotlin.math.abs(position).coerceIn(0f, 1f)
+                page.alpha = 1f - absPos * 0.25f
+                val s = 1f - absPos * 0.05f
+                page.scaleX = s
+                page.scaleY = s
+            }
             setCurrentItem(startIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)), false)
             registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
@@ -309,11 +316,17 @@ class ViewerActivity : ComponentActivity() {
                 val zv = ZoomImageView(holder.container.context).apply {
                     onSingleTap = { toggleChrome() }
                 }
+                val thumb = MediaRepo.getCachedThumbnail(item.id)
+                if (thumb != null) {
+                    zv.setImageBitmap(thumb)
+                }
                 holder.container.addView(zv, FrameLayout.LayoutParams(-1, -1))
                 Thread {
                     val bmp = MediaRepo.decodeSampledBitmap(this@ViewerActivity, item.uri)
                     runOnUiThread {
-                        if (bmp != null) zv.setImageBitmap(bmp)
+                        if (bmp != null) {
+                            zv.setImageBitmap(bmp)
+                        }
                     }
                 }.start()
             }

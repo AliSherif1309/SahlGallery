@@ -59,4 +59,12 @@
     <string name="cleanup_ready">اختر العناصر لنقلها إلى السلة</string>
     <string name="cleanup_reclaimable">يمكن توفير %1$s</string>
     <string name="cleanup_clean">المساحة نظيفة!</string>
+    <string name="sort_by">ترتيب حسب</string>
+    <string name="sort_newest">الأحدث أولاً</string>
+    <string name="sort_oldest">الأقدم أولاً</string>
+    <string name="sort_largest">الأكبر حجماً</string>
+    <string name="sort_name">الاسم (أ–ي)</string>
+    <string name="sort_most_items">الأكثر عناصر</string>
+    <string name="album_pinned">تم تثبيت %1$s</string>
+    <string name="album_unpinned">تم إلغاء تثبيت %1$s</string>
 </resources>

@@ -98,4 +98,22 @@ class GalleryLogicTest {
         assertEquals(0, DuplicateFinder.hammingDistance(hA, hB))
         assertTrue(DuplicateFinder.hammingDistance(hA, hRev) > 20)
     }
+
+    @Test
+    fun sortingAndPinnedAlbumsWork() {
+        val items = listOf(
+            item(1, "z.jpg", "Camera", 100, size = 500),
+            item(2, "a.jpg", "Downloads", 300, size = 200),
+            item(3, "m.jpg", "Downloads", 200, size = 900)
+        )
+        assertEquals("a.jpg", MediaRepo.sortMedia(items, PhotoSort.NAME).first().name)
+        assertEquals(3L, MediaRepo.sortMedia(items, PhotoSort.LARGEST).first().id)
+        assertEquals(1L, MediaRepo.sortMedia(items, PhotoSort.OLDEST).first().id)
+
+        val albums = MediaRepo.buildAlbums(items)
+        val sortedByNamePinned = MediaRepo.sortAlbums(albums, AlbumSort.NAME, setOf("Downloads"))
+        assertEquals("Downloads", sortedByNamePinned.first().name)
+        val sortedCameraPinned = MediaRepo.sortAlbums(albums, AlbumSort.COUNT, setOf("Camera"))
+        assertEquals("Camera", sortedCameraPinned.first().name)
+    }
 }
