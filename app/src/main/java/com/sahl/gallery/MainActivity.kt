@@ -514,9 +514,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyLayoutManager() {
-        val cols = if (activeTab == 1 && activeAlbum == null) 2 else gridCols
+        val inAlbumsGrid = activeTab == 1 && activeAlbum == null
+        val cols = if (inAlbumsGrid) 2 else gridCols
+        val existing = recycler.layoutManager as? GridLayoutManager
+        if (existing != null && existing.spanCount == cols) {
+            val hasSpanLookup = existing.spanSizeLookup !is GridLayoutManager.DefaultSpanSizeLookup
+            if (inAlbumsGrid && !hasSpanLookup) return
+            if (!inAlbumsGrid && hasSpanLookup) return
+        }
+        recycler.itemAnimator = null
         val lm = GridLayoutManager(this, cols)
-        if (activeTab != 1 || activeAlbum != null) {
+        if (!inAlbumsGrid) {
             lm.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int =
                     if (timelineEntries.getOrNull(position) is TimelineEntry.Header) cols else 1
@@ -534,6 +542,9 @@ class MainActivity : ComponentActivity() {
             val pinned = MediaRepo.getPinnedAlbums(this)
             val builtAlbums = MediaRepo.sortAlbums(MediaRepo.buildAlbums(loaded), albumSort, pinned)
             runOnUiThread {
+                if (loaded == allItems && favs == favorites && pinned == pinnedAlbums && allItems.isNotEmpty()) {
+                    return@runOnUiThread
+                }
                 allItems = loaded
                 favorites = favs
                 pinnedAlbums = pinned
@@ -602,7 +613,11 @@ class MainActivity : ComponentActivity() {
         if (activeTab == 1 && activeAlbum == null) {
             emptyText.visibility = View.GONE
             albums = MediaRepo.sortAlbums(albums, albumSort, pinnedAlbums)
-            recycler.adapter = AlbumAdapter()
+            if (recycler.adapter is AlbumAdapter) {
+                recycler.adapter?.notifyDataSetChanged()
+            } else {
+                recycler.adapter = AlbumAdapter()
+            }
             return
         }
 
@@ -622,7 +637,11 @@ class MainActivity : ComponentActivity() {
             sorted.map { TimelineEntry.Item(it) }
         }
         emptyText.visibility = if (timelineEntries.isEmpty()) View.VISIBLE else View.GONE
-        recycler.adapter = TimelineAdapter()
+        if (recycler.adapter is TimelineAdapter) {
+            recycler.adapter?.notifyDataSetChanged()
+        } else {
+            recycler.adapter = TimelineAdapter()
+        }
     }
 
     private fun updateSelectionBar() {
