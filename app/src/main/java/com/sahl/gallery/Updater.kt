@@ -76,8 +76,7 @@ object Updater {
         try {
             nm.notify(
                 502,
-                Notification.Builder(ctx, "updates")
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                SahlNotif.apply(ctx, Notification.Builder(ctx, "updates"))
                     .setContentTitle(availableText(ctx, r))
                     .setContentText(r.notes.ifBlank { updateNowText(ctx) })
                     .setContentIntent(open)
