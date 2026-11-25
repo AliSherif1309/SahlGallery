@@ -1,18 +1,39 @@
-# Sahl Gallery · معرض سهل
+<div align="center">
 
-A fast, lightweight, privacy-respecting photo & video gallery for Android 11+, from the Sahl apps family.
+<img src="docs/banner.svg" alt="Sahl Gallery · سهل للمعرض" width="100%"/>
 
-## Features
-- **Instant timeline & albums**: Hardware-cached `MediaStore` thumbnails, pinch-to-resize grid (`2` to `5` columns), date grouping, and quick filters (All, Photos, Videos, Favorites, Large files).
-- **Smooth full-screen viewer**: Horizontal swipe (`ViewPager2`), pinch & double-tap zoom, built-in video player, EXIF camera details, Favorite, Share, Copy/Move to Album, Set as Wallpaper, and safe Recycle Bin (`MediaStore.createTrashRequest`).
-- **Built-in Photo Editor**: Crop (`Free`, `1:1`, `4:3`, `16:9`, `9:16`), rotate/flip, real-time Brightness/Contrast/Saturation/Warmth sliders, and **1-Tap Auto Enhance**.
-- **Private Vault**: Biometric / PIN-locked hidden folder (`FLAG_SECURE` no screenshots) stored privately inside the app.
-- **System & Sahl integration**: Handles `ACTION_VIEW`, `ACTION_PICK`, and `ACTION_GET_CONTENT`, and pairs directly with **Sahl Camera**.
-- **In-app updates** from GitHub Releases.
-- Arabic and English, light and dark.
+<br/><br/>
 
-## Install
-Download the latest APK from [Releases](../../releases/latest). Android 11 or newer.
+[![Download APK](https://img.shields.io/github/v/release/AliSherif1309/SahlGallery?label=Download%20APK&color=0B5D4B&style=for-the-badge)](https://github.com/AliSherif1309/SahlGallery/releases/latest)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/AliSherif1309/SahlGallery/build.yml?label=Build&color=1E8A70&style=for-the-badge)](https://github.com/AliSherif1309/SahlGallery/actions)
+![Bilingual](https://img.shields.io/badge/Language-Arabic%20%26%20English-D4AF37?style=for-the-badge)
+![Privacy](https://img.shields.io/badge/Privacy-100%%20Offline-073D32?style=for-the-badge)
 
-## License
-[MIT](LICENSE)
+</div>
+
+---
+
+## ✨ Highlights
+
+| Feature | What it gives you |
+|---|---|
+| 🖼️ **Fast Media Browsing** | Smooth scrolling across albums, photos, and videos stored on your device. |
+| ✂️ **Built-in Essentials** | View, crop, rotate, share, and organize albums without heavy cloud clutter. |
+| 🔒 **Private & Offline** | No internet tracking or unwanted AI cloud scanning—your memories stay on your phone. |
+| 🌙 **Light & Dark Emerald** | Matches the calm Sahl Family theme in both Arabic and English. |
+
+---
+
+## 📲 Install in Seconds
+
+1. Tap **[Download Latest APK](https://github.com/AliSherif1309/SahlGallery/releases/latest)** above.
+2. Open the downloaded `.apk` file on your Android phone to install.
+3. **Sahl Gallery** checks for new versions automatically so you stay up to date in one tap.
+
+---
+
+## 🌿 The Sahl Apps Family · عائلة تطبيقات سهل
+
+A calm, ad-free, bilingual (**Arabic & English**) suite of everyday Android apps crafted in **Emerald & Gold**:
+
+[🎨 Sahl Theme](https://github.com/AliSherif1309/SahlHome) · [🕌 Sahl Adhan](https://github.com/AliSherif1309/SahlAdhan) · [🧭 Sahl Qibla](https://github.com/AliSherif1309/SahlQibla) · [📞 Sahl Phone](https://github.com/AliSherif1309/SahlPhone) · [👤 Sahl Contacts](https://github.com/AliSherif1309/SahlContacts) · [💬 Sahl Messages](https://github.com/AliSherif1309/SahlMessages) · [📷 Sahl Camera](https://github.com/AliSherif1309/SahlCamera) · [📁 Sahl Files](https://github.com/AliSherif1309/SahlFiles) · [📄 Sahl PDF](https://github.com/AliSherif1309/SahlPDF) · [🛠️ Sahl Tools](https://github.com/AliSherif1309/SahlTools) · [☁️ Sahl Sync](https://github.com/AliSherif1309/SahlSync) · [📺 Sahl TV](https://github.com/AliSherif1309/SahlTV-Launcher)
