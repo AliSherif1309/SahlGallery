@@ -49,6 +49,16 @@ enum class MediaFilter {
     ALL, PHOTOS, VIDEOS, FAVORITES, LARGE
 }
 
+enum class PhotoSort(val id: Int) {
+    NEWEST(0), OLDEST(1), LARGEST(2), NAME(3);
+    companion object { fun fromId(id: Int) = entries.firstOrNull { it.id == id } ?: NEWEST }
+}
+
+enum class AlbumSort(val id: Int) {
+    COUNT(0), NAME(1), NEWEST(2);
+    companion object { fun fromId(id: Int) = entries.firstOrNull { it.id == id } ?: COUNT }
+}
+
 object MediaRepo {
     private val thumbPool = Executors.newFixedThreadPool(4)
     private val thumbCache = object : LruCache<Long, Bitmap>(
@@ -156,6 +166,48 @@ object MediaRepo {
         return map.entries.map { (name, list) ->
             Album(name = name, count = list.size, coverItem = list.first())
         }.sortedByDescending { it.count }
+    }
+
+    fun sortMedia(items: List<MediaItem>, sort: PhotoSort): List<MediaItem> = when (sort) {
+        PhotoSort.NEWEST -> items.sortedByDescending { it.dateAddedSec }
+        PhotoSort.OLDEST -> items.sortedBy { it.dateAddedSec }
+        PhotoSort.LARGEST -> items.sortedByDescending { it.sizeBytes }
+        PhotoSort.NAME -> items.sortedBy { it.name.lowercase(Locale.US) }
+    }
+
+    fun sortAlbums(albums: List<Album>, sort: AlbumSort, pinned: Set<String>): List<Album> {
+        val comparator = Comparator<Album> { a, b ->
+            val aPinned = pinned.contains(a.name)
+            val bPinned = pinned.contains(b.name)
+            if (aPinned != bPinned) return@Comparator if (aPinned) -1 else 1
+            when (sort) {
+                AlbumSort.COUNT -> b.count.compareTo(a.count)
+                AlbumSort.NAME -> a.name.lowercase(Locale.US).compareTo(b.name.lowercase(Locale.US))
+                AlbumSort.NEWEST -> b.coverItem.dateAddedSec.compareTo(a.coverItem.dateAddedSec)
+            }
+        }
+        return albums.sortedWith(comparator)
+    }
+
+    fun getPinnedAlbums(context: Context): MutableSet<String> {
+        val sp = context.getSharedPreferences("sahl_gallery_prefs", Context.MODE_PRIVATE)
+        return (sp.getStringSet("pinned_albums", emptySet()) ?: emptySet()).toMutableSet()
+    }
+
+    fun togglePinnedAlbum(context: Context, name: String): Boolean {
+        val pinned = getPinnedAlbums(context)
+        val added = if (pinned.contains(name)) {
+            pinned.remove(name)
+            false
+        } else {
+            pinned.add(name)
+            true
+        }
+        context.getSharedPreferences("sahl_gallery_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet("pinned_albums", pinned)
+            .apply()
+        return added
     }
 
     fun filterItems(

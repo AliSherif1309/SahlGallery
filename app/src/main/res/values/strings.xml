@@ -59,4 +59,12 @@
     <string name="cleanup_ready">Select items to move to Trash</string>
     <string name="cleanup_reclaimable">Can free %1$s</string>
     <string name="cleanup_clean">Storage looks clean!</string>
+    <string name="sort_by">Sort by</string>
+    <string name="sort_newest">Newest first</string>
+    <string name="sort_oldest">Oldest first</string>
+    <string name="sort_largest">Largest first</string>
+    <string name="sort_name">Name (A–Z)</string>
+    <string name="sort_most_items">Most items</string>
+    <string name="album_pinned">Pinned %1$s</string>
+    <string name="album_unpinned">Unpinned %1$s</string>
 </resources>

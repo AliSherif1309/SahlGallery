@@ -2,6 +2,7 @@ package com.sahl.gallery
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -10,6 +11,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
 import android.provider.MediaStore
 import android.text.Editable
 import android.text.TextWatcher
@@ -23,7 +25,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -37,12 +41,16 @@ class MainActivity : ComponentActivity() {
     private var timelineEntries: List<TimelineEntry> = emptyList()
     private var visibleMedia: List<MediaItem> = emptyList()
     private var favorites: Set<Long> = emptySet()
+    private var pinnedAlbums: MutableSet<String> = mutableSetOf()
 
     private var activeTab = 0 // 0 = Photos, 1 = Albums, 2 = Search
     private var activeAlbum: String? = null
     private var activeFilter = MediaFilter.ALL
+    private var photoSort = PhotoSort.NEWEST
+    private var albumSort = AlbumSort.COUNT
     private var searchQuery = ""
     private var gridCols = 3
+    private var albumsScrollState: Parcelable? = null
 
     private val selectedIds = LinkedHashSet<Long>()
     private var isPickMode = false
@@ -50,6 +58,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionOverlay: LinearLayout
     private lateinit var topTitle: TextView
     private lateinit var btnBackAlbum: TextView
+    private lateinit var btnSort: TextView
     private lateinit var selectionBar: LinearLayout
     private lateinit var selectionCountText: TextView
     private lateinit var searchBarContainer: LinearLayout
@@ -97,7 +106,28 @@ class MainActivity : ComponentActivity() {
         val act = intent?.action
         isPickMode = act == Intent.ACTION_PICK || act == Intent.ACTION_GET_CONTENT
         dark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        gridCols = getSharedPreferences("sahl_gallery_prefs", MODE_PRIVATE).getInt("grid_cols", 3).coerceIn(2, 5)
+        val sp = getSharedPreferences("sahl_gallery_prefs", MODE_PRIVATE)
+        gridCols = sp.getInt("grid_cols", 3).coerceIn(2, 5)
+        photoSort = PhotoSort.fromId(sp.getInt("photo_sort", PhotoSort.NEWEST.id))
+        albumSort = AlbumSort.fromId(sp.getInt("album_sort", AlbumSort.COUNT.id))
+        pinnedAlbums = MediaRepo.getPinnedAlbums(this)
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    selectedIds.isNotEmpty() -> {
+                        selectedIds.clear()
+                        updateSelectionBar()
+                        recycler.adapter?.notifyDataSetChanged()
+                    }
+                    activeAlbum != null -> exitAlbum()
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
 
         buildUi()
 
@@ -164,10 +194,7 @@ class MainActivity : ComponentActivity() {
             setTextColor(textPrimary)
             visibility = View.GONE
             setPadding(0, (4 * dp).toInt(), (14 * dp).toInt(), (4 * dp).toInt())
-            setOnClickListener {
-                activeAlbum = null
-                refreshDisplay()
-            }
+            setOnClickListener { exitAlbum() }
         }
         topTitle = TextView(this).apply {
             text = getString(R.string.app_name)
@@ -175,6 +202,14 @@ class MainActivity : ComponentActivity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(textPrimary)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+        btnSort = TextView(this).apply {
+            text = "⇅"
+            textSize = 19f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(textPrimary)
+            setPadding((8 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
+            setOnClickListener { showSortDialog() }
         }
         val iconSz = (36 * dp).toInt()
         val iconPad = (7 * dp).toInt()
@@ -210,6 +245,7 @@ class MainActivity : ComponentActivity() {
         }
         topBar.addView(btnBackAlbum)
         topBar.addView(topTitle)
+        topBar.addView(btnSort)
         topBar.addView(btnCleanup)
         topBar.addView(btnCamera)
         topBar.addView(btnSettings)
@@ -454,28 +490,81 @@ class MainActivity : ComponentActivity() {
         Thread {
             val loaded = MediaRepo.loadAllMedia(this, includeHidden = showHidden)
             val favs = MediaRepo.getFavorites(this)
-            val builtAlbums = MediaRepo.buildAlbums(loaded)
+            val pinned = MediaRepo.getPinnedAlbums(this)
+            val builtAlbums = MediaRepo.sortAlbums(MediaRepo.buildAlbums(loaded), albumSort, pinned)
             runOnUiThread {
                 allItems = loaded
                 favorites = favs
+                pinnedAlbums = pinned
                 albums = builtAlbums
                 refreshDisplay()
             }
         }.start()
     }
 
+    private fun openAlbum(name: String) {
+        albumsScrollState = recycler.layoutManager?.onSaveInstanceState()
+        activeAlbum = name
+        refreshDisplay()
+    }
+
+    private fun exitAlbum() {
+        activeAlbum = null
+        refreshDisplay()
+        albumsScrollState?.let { state ->
+            recycler.post { recycler.layoutManager?.onRestoreInstanceState(state) }
+        }
+    }
+
+    private fun showSortDialog() {
+        val sp = getSharedPreferences("sahl_gallery_prefs", MODE_PRIVATE)
+        if (activeTab == 1 && activeAlbum == null) {
+            val labels = arrayOf(
+                getString(R.string.sort_most_items),
+                getString(R.string.sort_name),
+                getString(R.string.sort_newest)
+            )
+            AlertDialog.Builder(this)
+                .setTitle(R.string.sort_by)
+                .setSingleChoiceItems(labels, albumSort.id) { dlg, which ->
+                    albumSort = AlbumSort.fromId(which)
+                    sp.edit().putInt("album_sort", albumSort.id).apply()
+                    albums = MediaRepo.sortAlbums(albums, albumSort, pinnedAlbums)
+                    refreshDisplay()
+                    dlg.dismiss()
+                }.show()
+        } else {
+            val labels = arrayOf(
+                getString(R.string.sort_newest),
+                getString(R.string.sort_oldest),
+                getString(R.string.sort_largest),
+                getString(R.string.sort_name)
+            )
+            AlertDialog.Builder(this)
+                .setTitle(R.string.sort_by)
+                .setSingleChoiceItems(labels, photoSort.id) { dlg, which ->
+                    photoSort = PhotoSort.fromId(which)
+                    sp.edit().putInt("photo_sort", photoSort.id).apply()
+                    refreshDisplay()
+                    dlg.dismiss()
+                }.show()
+        }
+    }
+
     private fun refreshDisplay() {
         btnBackAlbum.visibility = if (activeAlbum != null) View.VISIBLE else View.GONE
+        btnSort.visibility = if (activeTab == 0 || activeTab == 1) View.VISIBLE else View.GONE
         topTitle.text = activeAlbum ?: getString(R.string.app_name)
         applyLayoutManager()
 
         if (activeTab == 1 && activeAlbum == null) {
             emptyText.visibility = View.GONE
+            albums = MediaRepo.sortAlbums(albums, albumSort, pinnedAlbums)
             recycler.adapter = AlbumAdapter()
             return
         }
 
-        val source = when {
+        val rawSource = when {
             activeAlbum == getString(R.string.all_images_album) -> allItems.filter { !it.isVideo }
             activeAlbum == getString(R.string.favorites_album) -> allItems.filter { favorites.contains(it.id) }
             activeAlbum != null -> allItems.filter { it.bucket == activeAlbum }
@@ -483,8 +572,13 @@ class MainActivity : ComponentActivity() {
             else -> allItems
         }
 
-        visibleMedia = source
-        timelineEntries = MediaRepo.groupByDate(source, getString(R.string.today), getString(R.string.yesterday))
+        val sorted = MediaRepo.sortMedia(rawSource, photoSort)
+        visibleMedia = sorted
+        timelineEntries = if (photoSort == PhotoSort.NEWEST || photoSort == PhotoSort.OLDEST) {
+            MediaRepo.groupByDate(sorted, getString(R.string.today), getString(R.string.yesterday))
+        } else {
+            sorted.map { TimelineEntry.Item(it) }
+        }
         emptyText.visibility = if (timelineEntries.isEmpty()) View.VISIBLE else View.GONE
         recycler.adapter = TimelineAdapter()
     }
@@ -715,8 +809,7 @@ class MainActivity : ComponentActivity() {
                     holder.img.setImageBitmap(null)
                 }
                 holder.card.setOnClickListener {
-                    activeAlbum = getString(R.string.all_images_album)
-                    refreshDisplay()
+                    openAlbum(getString(R.string.all_images_album))
                 }
                 return
             }
@@ -725,8 +818,7 @@ class MainActivity : ComponentActivity() {
                 holder.title.text = "♥ ${getString(R.string.favorites_album)}"
                 holder.count.text = favorites.size.toString()
                 holder.card.setOnClickListener {
-                    activeAlbum = getString(R.string.favorites_album)
-                    refreshDisplay()
+                    openAlbum(getString(R.string.favorites_album))
                 }
                 return
             }
@@ -740,7 +832,8 @@ class MainActivity : ComponentActivity() {
                 return
             }
             val album = albums[position - 3]
-            holder.title.text = album.name
+            val isPinned = pinnedAlbums.contains(album.name)
+            holder.title.text = if (isPinned) "📌 ${album.name}" else album.name
             holder.count.text = album.count.toString()
             holder.img.tag = album.coverItem.id
             val cached = MediaRepo.getCachedThumbnail(album.coverItem.id)
@@ -757,8 +850,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
             holder.card.setOnClickListener {
-                activeAlbum = album.name
+                openAlbum(album.name)
+            }
+            holder.card.setOnLongClickListener {
+                val nowPinned = MediaRepo.togglePinnedAlbum(this@MainActivity, album.name)
+                if (nowPinned) pinnedAlbums.add(album.name) else pinnedAlbums.remove(album.name)
+                val msg = if (nowPinned) getString(R.string.album_pinned, album.name) else getString(R.string.album_unpinned, album.name)
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
                 refreshDisplay()
+                true
             }
         }
     }
