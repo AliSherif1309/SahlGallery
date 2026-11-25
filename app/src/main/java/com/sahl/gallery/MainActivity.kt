@@ -6,13 +6,18 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.database.ContentObserver
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Parcelable
 import android.provider.MediaStore
+import java.util.concurrent.Executors
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
@@ -58,8 +63,20 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionOverlay: LinearLayout
     private lateinit var topTitle: TextView
     private lateinit var btnBackAlbum: TextView
-    private lateinit var btnSort: TextView
+    private lateinit var btnSort: ImageView
     private lateinit var selectionBar: LinearLayout
+
+    private val mediaExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val reloadRunnable = Runnable {
+        if (hasMediaPermission()) reloadMedia()
+    }
+    private val mediaObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            mainHandler.removeCallbacks(reloadRunnable)
+            mainHandler.postDelayed(reloadRunnable, 120L)
+        }
+    }
     private lateinit var selectionCountText: TextView
     private lateinit var searchBarContainer: LinearLayout
     private lateinit var searchInput: EditText
@@ -131,6 +148,13 @@ class MainActivity : ComponentActivity() {
 
         buildUi()
 
+        contentResolver.registerContentObserver(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, true, mediaObserver
+        )
+        contentResolver.registerContentObserver(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, mediaObserver
+        )
+
         if (hasMediaPermission()) {
             permissionOverlay.visibility = View.GONE
             reloadMedia()
@@ -147,9 +171,18 @@ class MainActivity : ComponentActivity() {
             gridCols = newCols
             applyLayoutManager()
         }
-        if (hasMediaPermission() && allItems.isNotEmpty()) {
-            favorites = MediaRepo.getFavorites(this)
+        if (hasMediaPermission()) {
+            reloadMedia()
         }
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacks(reloadRunnable)
+        try {
+            contentResolver.unregisterContentObserver(mediaObserver)
+        } catch (_: Exception) {}
+        mediaExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun requiredPermissions(): Array<String> =
@@ -203,16 +236,16 @@ class MainActivity : ComponentActivity() {
             setTextColor(textPrimary)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
-        btnSort = TextView(this).apply {
-            text = "⇅"
-            textSize = 19f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(textPrimary)
-            setPadding((8 * dp).toInt(), (4 * dp).toInt(), (8 * dp).toInt(), (4 * dp).toInt())
-            setOnClickListener { showSortDialog() }
-        }
         val iconSz = (36 * dp).toInt()
         val iconPad = (7 * dp).toInt()
+        btnSort = ImageView(this).apply {
+            setImageResource(R.drawable.ic_sahl_sort)
+            setColorFilter(textPrimary)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(iconPad, iconPad, iconPad, iconPad)
+            layoutParams = LinearLayout.LayoutParams(iconSz, iconSz)
+            setOnClickListener { showSortDialog() }
+        }
         val btnCleanup = ImageView(this).apply {
             setImageResource(R.drawable.ic_sahl_cleaner)
             setColorFilter(textPrimary)
@@ -494,7 +527,8 @@ class MainActivity : ComponentActivity() {
 
     private fun reloadMedia() {
         val showHidden = getSharedPreferences("sahl_gallery_prefs", MODE_PRIVATE).getBoolean("show_hidden", false)
-        Thread {
+        if (mediaExecutor.isShutdown) return
+        mediaExecutor.execute {
             val loaded = MediaRepo.loadAllMedia(this, includeHidden = showHidden)
             val favs = MediaRepo.getFavorites(this)
             val pinned = MediaRepo.getPinnedAlbums(this)
@@ -506,7 +540,7 @@ class MainActivity : ComponentActivity() {
                 albums = builtAlbums
                 refreshDisplay()
             }
-        }.start()
+        }
     }
 
     private fun openAlbum(name: String) {
